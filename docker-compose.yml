@@ -1,0 +1,53 @@
+version: '3.8' # Versión del motor de Docker Compose
+
+services:
+  # --- TU API (NestJS + Express) ---
+  api_service:
+    build: . # Busca el "Dockerfile" en la misma carpeta para construir la imagen
+    container_name: nest_api_container
+    ports:
+      - "3000:3000" # [Puerto Windows]:[Puerto dentro del Contenedor]
+    environment:
+      # Usamos los nombres de los servicios (db_mysql, db_mongo) como si fueran IPs
+      - DATABASE_URL=mysql://root:rootpassword@db_mysql:3306/mi_proyecto
+      - MONGO_URL=mongodb://admin:password@db_mongo:27017/mi_proyecto?authSource=admin
+      # Cargamos el resto desde tu archivo .env local
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - CLOUDINARY_URL=${CLOUDINARY_URL}
+    depends_on:
+      - db_mysql
+      - db_mongo
+    volumes:
+      - .:/app # Sincroniza tu código de Windows con el contenedor (Hot Reload)
+      - /app/node_modules # Evita que Docker sobreescriba los node_modules internos
+
+  # --- BASE DE DATOS MYSQL ---
+  db_mysql:
+    image: mysql:8.0
+    container_name: mysql_container
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: mi_proyecto
+    ports:
+      - "3306:3306" # Permite que uses DBeaver o Workbench desde Windows
+    volumes:
+      - mysql_data:/var/lib/mysql # Los datos no se borran al apagar Docker
+
+  # --- BASE DE DATOS MONGODB ---
+  db_mongo:
+    image: mongo:latest
+    container_name: mongo_container
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+# --- VOLÚMENES (Para que no se pierdan tus datos) ---
+volumes:
+  mysql_data:
+  mongo_data:
