@@ -1,46 +1,46 @@
 # --- ETAPA 1: Construcción (Build) ---
 FROM node:20-alpine AS builder
 
-# Instalamos dependencias de sistema para compilar Sharp y Bcrypt en Linux
+# Instalamos dependencias de sistema para compilar Sharp y Bcrypt
 RUN apk add --no-cache python3 make g++ gcc libc6-compat
 
 WORKDIR /app
 
-# Copiamos archivos de definición de dependencias
+# Copiamos archivos de dependencias y schema de Prisma
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Instalamos todas las dependencias (incluyendo NestJS, Sharp, Bcrypt, etc.)
+# Instalamos todas las dependencias
 RUN npm install
 
-# Copiamos el resto del código (incluyendo la lógica de Gemini, Cloudinary y Nodemailer)
+# Copiamos el resto del código fuente
 COPY . .
 
-# Generamos el cliente de Prisma (necesario para TypeScript e IntelliSense)
+# Generamos el cliente de Prisma
 RUN npx prisma generate
 
-# Compilamos el proyecto de NestJS (de TS a JS en la carpeta /dist)
+# Compilamos el proyecto (TS -> JS)
 RUN npm run build
 
 # --- ETAPA 2: Producción (Runtime) ---
 FROM node:20-alpine
 
-# Instalamos libvips (necesaria para que Sharp funcione en modo producción en Alpine)
+# libvips es necesaria para el procesamiento de imágenes con Sharp en producción
 RUN apk add --no-cache libvips-dev
 
 WORKDIR /app
 
-# Copiamos solo lo estrictamente necesario de la etapa anterior
+# Copiamos solo lo necesario de la etapa anterior para que la imagen pese poco
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
 
-# Exponemos el puerto de comunicación (NestJS/Express suele usar el 3000)
+# Exponemos el puerto de NestJS
 EXPOSE 3000
 
-# Variables de entorno por defecto (se sobreescriben en el docker-compose o .env)
+# Entorno de producción
 ENV NODE_ENV=production
 
-# Comando de inicio
-CMD ["npm", "run", "start:prod"]
+# Comando: Primero corre las migraciones de Postgres y luego inicia la App
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run start:prod"]
