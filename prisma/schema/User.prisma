@@ -1,8 +1,8 @@
 enum Role {
 	ADMIN
-	CONSUMER
-	ORGANIZATOR
-	OFFERER
+	CONSUMER //usuario común, consumidor de servicios y eventos
+	ORGANIZATOR //organiza eventos, pero no ofrece servicios
+	OFFERER //ofrece servicios, puede organiza eventos (opcional)
 }
 
 model User {
@@ -15,7 +15,7 @@ model User {
 	verified Boolean @default(false)
 	image String @default("https://undefined.com") //Acá hay que poener la URL a la imágen por default de Cloudinary (o sea, una cosa gris con un dibujito sensillo).
 	dni String? @unique
-	cuit String? @unique
+	cuit String? @unique 
 	address String?
 	serviceFK Int?
 	taggedRel Tagged[]
