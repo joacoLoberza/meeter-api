@@ -1,53 +1,44 @@
-version: '3.8' # Versión del motor de Docker Compose
+version: '3.8' #Versión del motor de Docker Compose
 
 services:
-  # --- TU API (NestJS + Express) ---
+  # --- BACKEND (NestJS) ---
   api_service:
-    build: . # Busca el "Dockerfile" en la misma carpeta para construir la imagen
+    build: .
     container_name: nest_api_container
     ports:
-      - "3000:3000" # [Puerto Windows]:[Puerto dentro del Contenedor]
+      - "3000:3000"
     environment:
-      # Usamos los nombres de los servicios (db_mysql, db_mongo) como si fueran IPs
-      - DATABASE_URL=mysql://root:rootpassword@db_mysql:3306/mi_proyecto
-      - MONGO_URL=mongodb://admin:password@db_mongo:27017/mi_proyecto?authSource=admin
-      # Cargamos el resto desde tu archivo .env local
+      # URL de conexión: postgresql://USUARIO:PASSWORD@HOST:PUERTO/DATABASE
+      - DATABASE_URL=postgresql://admin:adminpassword@db_postgres:5432/fiestas_db
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - CLOUDINARY_URL=${CLOUDINARY_URL}
+      - NODE_ENV=production
     depends_on:
-      - db_mysql
-      - db_mongo
+      db_postgres:
+        condition: service_healthy # Espera a que la DB esté realmente lista
     volumes:
-      - .:/app # Sincroniza tu código de Windows con el contenedor (Hot Reload)
-      - /app/node_modules # Evita que Docker sobreescriba los node_modules internos
+      - .:/app
+      - /app/node_modules
 
-  # --- BASE DE DATOS MYSQL ---
-  db_mysql:
-    image: mysql:8.0
-    container_name: mysql_container
+  # --- BASE DE DATOS (PostgreSQL) ---
+  db_postgres:
+    image: postgres:15-alpine
+    container_name: postgres_container
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: mi_proyecto
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: fiestas_db
     ports:
-      - "3306:3306" # Permite que uses DBeaver o Workbench desde Windows
+      - "5432:5432"
+    healthcheck: # Prueba de vida para que la API no intente conectar antes de tiempo
+      test: ["CMD-SHELL", "pg_isready -U admin -d fiestas_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     volumes:
-      - mysql_data:/var/lib/mysql # Los datos no se borran al apagar Docker
+      - postgres_data:/var/lib/postgresql/data
 
-  # --- BASE DE DATOS MONGODB ---
-  db_mongo:
-    image: mongo:latest
-    container_name: mongo_container
-    restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo_data:/data/db
-
-# --- VOLÚMENES (Para que no se pierdan tus datos) ---
+# --- VOLÚMENES PERSISTENTES ---
 volumes:
-  mysql_data:
-  mongo_data:
+  postgres_data:
