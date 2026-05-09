@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { User } from '@prisma/client'
 import { UpdateUserDto } from '../Rutas/dto/update-user.dto'
+import { PrismaService } from './prisma.service'
 
 /**
  * Propósito y Contexto del UserService
@@ -12,14 +13,14 @@ import { UpdateUserDto } from '../Rutas/dto/update-user.dto'
 @Injectable()
 export class UserService {
   constructor(
-    private readonly prisma: any, // Inyección de dependencia de PrismaService o repositorio equivalente.
+    private readonly prisma: PrismaService,
   ) {}
 
   /**
    * findAll — Devuelve todos los usuarios con paginación y excluyendo información sensible.
    * En una implementación productiva, se filtran datos sensibles antes de devolverlos.
    */
-  async findAll(page: number = 1, limit: number = 20): Promise<Omit<User, 'password' | 'id' | 'cuit' | 'serviceFK'>[]> {
+  async findAll(page: number = 1, limit: number = 20): Promise<any[]> {
     const skip = (page - 1) * limit;
     const users = await this.prisma.user.findMany({
       take: limit,
@@ -33,12 +34,13 @@ export class UserService {
         image: true,
         dni: true,
         address: true,
-        // Excluyendo: id, password, cuit, serviceFK
+        cuit: true,
+        // Excluyendo: id, password, serviceFK
       },
     });
-    return users.map((user: Omit<User, 'password' | 'id' | 'cuit' | 'serviceFK'> & { address?: string | null }) => {
+    return users.map((user) => {
       if (user.role !== 'OFFERER') {
-        const { address, ...rest } = user
+        const { address, cuit, ...rest } = user
         return rest
       }
       return user
@@ -50,9 +52,9 @@ export class UserService {
    * Lanza NotFoundException si no existe el usuario.
    * Excluye password, id y serviceFK.
    */
-  async findOne(id: string): Promise<Omit<User, 'password' | 'id' | 'serviceFK'>> {
+  async findOne(id: string): Promise<any> {
     const user = await this.prisma.user.findUnique({
-      where: { id },
+      where: { id: Number(id) },
       select: {
         role: true,
         user: true,
@@ -62,6 +64,7 @@ export class UserService {
         image: true,
         dni: true,
         address: true,
+        cuit: true,
         // Excluyendo: id, password, serviceFK
       },
     })
@@ -69,7 +72,7 @@ export class UserService {
       throw new NotFoundException('Usuario no encontrado')
     }
     if (user.role !== 'OFFERER') {
-      const { address, ...result } = user
+      const { address, cuit, ...result } = user as any
       return result
     }
     return user
@@ -81,7 +84,7 @@ export class UserService {
    */
   async update(id: string, dto: UpdateUserDto): Promise<Omit<User, 'password'>> {
     const user = await this.prisma.user.update({
-      where: { id },
+      where: { id: Number(id) },
       data: dto,
     })
     const { password, ...result } = user
@@ -93,7 +96,7 @@ export class UserService {
    * Puede ser Hard Delete o Soft Delete según la estrategia de negocio.
    */
   async remove(id: string): Promise<{ success: boolean }> {
-    await this.prisma.user.delete({ where: { id } })
+    await this.prisma.user.delete({ where: { id: Number(id) } })
     return { success: true }
   }
 }
