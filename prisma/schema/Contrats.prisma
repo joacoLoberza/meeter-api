@@ -5,11 +5,32 @@ enum ContratsPayState {
 	REJECTED
 }
 
+enum ContratsStatus {
+	PENDING
+	ACCEPTED
+	REJECTED
+	CANCELLED
+	COMPLETED
+}
+
 model Contrats {
 	id Int @id @default(autoincrement())
 	event Events @relation(fields: [eventFK], references: [id])
 	eventFK Int
+	organizer User @relation("OrganizerContracts", fields: [organizerFK], references: [id])
+	organizerFK Int
+	provider User @relation("ProviderContracts", fields: [providerFK], references: [id])
+	providerFK Int
 	service Services @relation(fields: [serviceFK], references: [id])
 	serviceFK Int
+	finalPrice Int
+	status ContratsStatus @default(PENDING)
+	notes String?
+	requiresFormalContract Boolean @default(false)
+	contractTerms String?
+	organizerSigned Boolean @default(false)
+	providerSigned Boolean @default(false)
+	signedAt DateTime? @db.Timestamp
+	contractPdfUrl String?
 	paymentState ContratsPayState
 }

@@ -32,4 +32,6 @@ model User {
 	commentLikesRel CommentLikes[]
 	commentsRel Comment[]
 	chatMembersRel ChatMembers[]
+	organizerContractsRel Contrats[] @relation("OrganizerContracts")
+	providerContractsRel Contrats[] @relation("ProviderContracts")
 }
