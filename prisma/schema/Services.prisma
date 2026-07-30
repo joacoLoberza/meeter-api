@@ -18,7 +18,10 @@ model Services {
 	userFK Int
 	name String
 	description String
+	image String @default("https://undefined.com") //Acá hay que poener la URL a la imágen por default de Cloudinary (o sea, una cosa gris con un dibujito sensillo).
 	ubication String?
+	latitude Float?
+	longitude Float?
 	sourceUbication String?
 	category ServiceCategories @relation(fields: [categoryFK], references: [id])
 	categoryFK Int
