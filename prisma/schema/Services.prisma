@@ -18,7 +18,7 @@ model Services {
 	userFK Int
 	name String
 	description String
-	image String @default("https://undefined.com") //Acá hay que poener la URL a la imágen por default de Cloudinary (o sea, una cosa gris con un dibujito sensillo).
+	image String @default("https://undefined.com")
 	ubication String?
 	latitude Float?
 	longitude Float?
@@ -31,6 +31,9 @@ model Services {
 	receptionType ResType
 	details Json? @db.JsonB
 	rating Int @default(0)
+	deletedAt DateTime?
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
 	serviceRatingRel ServiceRating[]
 	contractsRel Contrats[]
 	avilabilityRel Avilability[]
