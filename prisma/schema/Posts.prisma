@@ -12,8 +12,8 @@ model Posts {
 	commentsCount Int @default(0)
 	restrictedComments Boolean @default(false)
 	sourceIp String
-	event Events @relation(fields: [eventFK], references: [id])
-	eventFK Int
+	event Events? @relation(fields: [eventFK], references: [id])
+	eventFK Int?
 	rate Int
 	interactions Int
 	taggedRel Tagged[]
