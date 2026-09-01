@@ -30,19 +30,20 @@ export class PostsController {
     @UploadedFiles() files?: Express.Multer.File[],
   ) {
     const userFK = req.payload?.id ?? req.payload?.sub ?? 1; // Fallback para pruebas sin guard
-    const clientIp = req.ip || req.connection.remoteAddress;
 
-    return this.postsService.create(dto, userFK, clientIp, files);
+    return this.postsService.create(dto, userFK, files);
   }
 
   @Get()
-  async findAll(@Query() query: GetPostsDto) {
-    return this.postsService.findAll(query);
+  async findAll(@Query() query: GetPostsDto, @Req() req: any) {
+    const userId = req.payload?.id ?? req.payload?.sub;
+    return this.postsService.findAll(query, userId);
   }
 
   @Get(':id')
-  async findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.postsService.findOne(id);
+  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    const userId = req.payload?.id ?? req.payload?.sub;
+    return this.postsService.findOne(id, userId);
   }
 
   @Patch(':id')

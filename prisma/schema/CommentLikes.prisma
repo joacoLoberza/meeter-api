@@ -1,7 +1,9 @@
 model CommentLikes {
 	id Int @id @default(autoincrement())
-	comment Comment @relation(fields: [commentFK], references: [id])
+	comment Comment @relation(fields: [commentFK], references: [id], onDelete: Cascade)
 	commentFK Int
 	user User @relation(fields: [userFK], references: [id])
 	userFK Int
+
+	@@unique([commentFK, userFK])
 }

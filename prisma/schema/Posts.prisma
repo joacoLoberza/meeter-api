@@ -11,7 +11,6 @@ model Posts {
 	favouritesCount Int @default(0)
 	commentsCount Int @default(0)
 	restrictedComments Boolean @default(false)
-	sourceIp String
 	event Events? @relation(fields: [eventFK], references: [id])
 	eventFK Int?
 	rate Int

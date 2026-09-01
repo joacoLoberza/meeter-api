@@ -22,7 +22,6 @@ export class PostsService {
   async create(
     dto: CreatePostDto,
     userFK: number,
-    clientIp: string,
     files?: Express.Multer.File[],
   ) {
     // Validar que al menos exista texto o archivos
@@ -59,7 +58,7 @@ export class PostsService {
 
     let initialRate = 50; // Valor por defecto si la base está vacía
     if (topPosts.length > 0) {
-      const sum = topPosts.reduce((acc, p) => acc + p.rate, 0);
+      const sum = topPosts.reduce((acc: any, p: any) => acc + p.rate, 0);
       initialRate = Math.round(sum / topPosts.length / 2);
     }
 
@@ -70,7 +69,6 @@ export class PostsService {
         ubication: dto.ubication ?? null,
         isAdd: dto.isAdd ?? false,
         restrictedComments: dto.restrictedComments ?? false,
-        sourceIp: clientIp,
         rate: initialRate,
         interactions: 0,
         user: { connect: { id: userFK } },
@@ -84,8 +82,8 @@ export class PostsService {
     };
   }
 
-  // 2. GET /posts/:id - Detalle de un post
-  async findOne(id: number) {
+// 2. GET /posts/:id - Detalle de un post con el estado de interacción del usuario
+  async findOne(id: number, userId?: number) {
     const post = await this.prisma.posts.findUnique({
       where: { id },
       select: {
@@ -142,6 +140,16 @@ export class PostsService {
             },
           },
         },
+        // Filtrar analytics solo para el usuario que hace la petición
+        ...(userId && {
+          postsAnalyticsRel: {
+            where: { userFK: userId },
+            select: {
+              liked: true,
+              favourite: true,
+            },
+          },
+        }),
       },
     });
 
@@ -149,52 +157,71 @@ export class PostsService {
       throw new NotFoundException(`Post with ID ${id} not found.`);
     }
 
-    // Aumentar interacciones asincrónicamente
-    await this.prisma.posts.update({
-      where: { id },
-      data: { interactions: { increment: 1 } },
-    });
+    // Formatear para devolver userInteraction limpia (o defaults en false)
+    const { postsAnalyticsRel, ...postData } = post as any;
+    const userAnalytics = postsAnalyticsRel?.[0];
 
-    return post;
+    return {
+      ...postData,
+      userInteraction: {
+        liked: userAnalytics?.liked ?? false,
+        favourite: userAnalytics?.favourite ?? false,
+      },
+    };
   }
 
-  // 3. GET /posts - Feed paginado ordenado por relevancia e inserciones no tan virales
-  async findAll(query: GetPostsDto) {
+  // 3. GET /posts - Feed paginado con selección específica de campos e interacciones del usuario
+  async findAll(query: GetPostsDto, userId?: number) {
     const { limit, cursor, order } = query;
 
-    // Obtener posts más relevantes según Rate e Interactions combinados
     const rawPosts = await this.prisma.posts.findMany({
       take: limit + 5,
       where: cursor ? { id: order === 'DESC' ? { lt: cursor } : { gt: cursor } } : {},
-      include: {
+      select: {
+        id: true,
+        text: true,
+        media: true,
+        likesCount: true,
+        commentsCount: true,
+        favouritesCount: true,
+        sharesCount: true,
+        isAdd: true,
+        interactions: true,
+        rate: true,
         user: {
           select: { id: true, name: true, image: true, verified: true },
         },
         event: {
           select: { id: true, name: true, image: true },
         },
+        ...(userId && {
+          postsAnalyticsRel: {
+            where: { userFK: userId },
+            select: {
+              liked: true,
+              favourite: true,
+            },
+          },
+        }),
       },
       orderBy: { id: order === 'DESC' ? 'desc' : 'asc' },
     });
 
-    // Algoritmo de puntuación: (Rate * 0.7) + (log10(Interactions + 1) * 30)
-    const scoredPosts = rawPosts.map((post) => {
-      const score =
-        post.rate * 0.7 + Math.log10(post.interactions + 1) * 30;
+    // Algoritmo de puntuación
+    const scoredPosts = rawPosts.map((post: any) => {
+      const score = post.rate * 0.7 + Math.log10(post.interactions + 1) * 30;
       return { post, score };
     });
 
-    // Ordenar de mayor a menor relevancia
     scoredPosts.sort((a, b) => b.score - a.score);
 
-    // Intercalar un post con rating más bajo cada 5 publicaciones virales
+    // Intercalar publicaciones menos virales cada 5
     const resultPosts: any[] = [];
-    const mainList = scoredPosts.map((s) => s.post);
+    const mainList = scoredPosts.map((s: any) => s.post);
 
     for (let i = 0; i < mainList.length; i++) {
       resultPosts.push(mainList[i]);
       if ((i + 1) % 5 === 0 && i < mainList.length - 1) {
-        // Mover el último elemento menos relevante temporalmente aquí
         const lowerPost = mainList.pop();
         if (lowerPost) resultPosts.push(lowerPost);
       }
@@ -202,9 +229,21 @@ export class PostsService {
 
     const finalFeed = resultPosts.slice(0, limit);
 
+    // Formatear respuesta suprimiendo rate y aplanando userInteraction
+    const formattedPosts = finalFeed.map(({ rate, postsAnalyticsRel, ...post }) => {
+      const userAnalytics = postsAnalyticsRel?.[0];
+      return {
+        ...post,
+        userInteraction: {
+          liked: userAnalytics?.liked ?? false,
+          favourite: userAnalytics?.favourite ?? false,
+        },
+      };
+    });
+
     return {
       message: 'Posts retrieved successfully.',
-      posts: finalFeed.map(({ sourceIp, rate, ...rest }) => rest), // Omitir sourceIp y rate
+      posts: formattedPosts,
       nextCursor: finalFeed.length > 0 ? finalFeed[finalFeed.length - 1].id : null,
     };
   }
