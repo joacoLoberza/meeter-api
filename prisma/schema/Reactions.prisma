@@ -1,6 +1,6 @@
 model Reactions {
 	id Int @id @default(autoincrement())
-	messages Messages @relation(fields: [messagesFK], references: [id])
+	messages Messages @relation(fields: [messagesFK], references: [id], onDelete: Cascade)
 	messagesFK Int
 	user User @relation(fields: [userFK], references: [id])
 	userFK Int

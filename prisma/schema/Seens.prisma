@@ -2,7 +2,7 @@ model Seens {
 	id Int @id @default(autoincrement())
 	user User @relation(fields: [userFK], references: [id])
 	userFK Int
-	message Messages @relation(fields: [messageFK], references: [id])
+	message Messages @relation(fields: [messageFK], references: [id], onDelete: Cascade)
 	messageFK Int
 
 	@@unique([userFK, messageFK])
