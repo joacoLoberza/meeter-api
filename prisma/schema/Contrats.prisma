@@ -12,4 +12,5 @@ model Contrats {
 	service Services @relation(fields: [serviceFK], references: [id])
 	serviceFK Int
 	paymentState ContratsPayState
+	createdAt DateTime @default(now()) @db.Timestamp(0)
 }

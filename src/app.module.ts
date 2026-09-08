@@ -7,6 +7,8 @@ import { PostsAnalyticsModule } from './posts-analytics/posts-analytics.module.j
 import { TaggedModule } from './tagged/tagged.module.js';
 import { CommentsModule } from './comments/comments.module.js';
 import { ChatsModule } from './chats/chats.module.js';
+import { ServiceCategoriesModule } from './service-categories/service-categories.module.js';
+import { ServiceRatingModule } from './service-rating/service-rating.module.js';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { ChatsModule } from './chats/chats.module.js';
     TaggedModule,
     CommentsModule,
     ChatsModule,
+    ServiceCategoriesModule,
+    ServiceRatingModule,
   ],
 })
 export class AppModule {}
