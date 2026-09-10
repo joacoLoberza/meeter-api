@@ -5,6 +5,5 @@ model Avilability {
 	initDate DateTime @db.Timestamp(0)
 	endDate DateTime @db.Timestamp(0)
 
-	@@unique([serviceFK, initDate])
-	@@unique([serviceFK, endDate])
+	@@unique([serviceFK, initDate, endDate])
 }

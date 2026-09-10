@@ -120,6 +120,16 @@ export class ServicesService {
             name: true,
           },
         },
+        avilabilityRel: {
+          select: {
+            id: true,
+            initDate: true,
+            endDate: true,
+          },
+          orderBy: {
+            initDate: 'asc',
+          },
+        },
       },
     });
 

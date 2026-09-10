@@ -9,6 +9,7 @@ import { CommentsModule } from './comments/comments.module.js';
 import { ChatsModule } from './chats/chats.module.js';
 import { ServiceCategoriesModule } from './service-categories/service-categories.module.js';
 import { ServiceRatingModule } from './service-rating/service-rating.module.js';
+import { AvailabilityModule } from './availability/availability.module.js';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ServiceRatingModule } from './service-rating/service-rating.module.js';
     ChatsModule,
     ServiceCategoriesModule,
     ServiceRatingModule,
+    AvailabilityModule,
   ],
 })
 export class AppModule {}
