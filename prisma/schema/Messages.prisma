@@ -9,7 +9,7 @@ model Messages {
 	reactions Json @default("{}") @db.JsonB
 	seen Boolean @default(false)
 	createdAt DateTime @default(now()) @db.Timestamp(0)
-	updatedAt DateTime @updatedAt @db.Timestamp(0)
+	updatedAt DateTime @default(now()) @db.Timestamp(0)
 	seens Seens[]
 	reactionsRel Reactions[]
 }
