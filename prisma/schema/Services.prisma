@@ -18,7 +18,10 @@ model Services {
 	userFK Int
 	name String
 	description String
+	image String @default("https://undefined.com")
 	ubication String?
+	latitude Float?
+	longitude Float?
 	sourceUbication String?
 	category ServiceCategories @relation(fields: [categoryFK], references: [id])
 	categoryFK Int
@@ -28,6 +31,9 @@ model Services {
 	receptionType ResType
 	details Json? @db.JsonB
 	rating Int @default(0)
+	deletedAt DateTime?
+	createdAt DateTime @default(now())
+	updatedAt DateTime @updatedAt
 	serviceRatingRel ServiceRating[]
 	contractsRel Contrats[]
 	avilabilityRel Avilability[]

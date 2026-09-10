@@ -1,8 +1,8 @@
 model PostsAnalytics {
 	id Int @id @default(autoincrement())
-	post Posts @relation(fields: [postFK], references: [id])
+	post Posts @relation(fields: [postFK], references: [id], onDelete: Cascade)
 	postFK Int
-	user User @relation(fields: [userFK], references: [id])
+	user User @relation(fields: [userFK], references: [id], onDelete: Cascade)
 	userFK Int
 	liked Boolean @default(false)
 	commented Boolean @default(false)
@@ -12,4 +12,6 @@ model PostsAnalytics {
 	completionRate Int
 	notInterested Boolean @default(false)
 	finalRate Int
+
+	@@unique([postFK, userFK])
 }

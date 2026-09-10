@@ -1,6 +1,17 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from './prisma/prisma.module.js';
+import { ServicesModule } from './services/services.module.js';
+import { PostsModule } from './posts/posts.module.js';
+import { PostsAnalyticsModule } from './posts-analytics/posts-analytics.module.js';
+import { TaggedModule } from './tagged/tagged.module.js';
+import { CommentsModule } from './comments/comments.module.js';
+import { ChatsModule } from './chats/chats.module.js';
+import { ServiceCategoriesModule } from './service-categories/service-categories.module.js';
+import { ServiceRatingModule } from './service-rating/service-rating.module.js';
+import { AvailabilityModule } from './availability/availability.module.js';
 import { Module, ValidationPipe } from '@nestjs/common'
 import { APP_FILTER, APP_PIPE } from '@nestjs/core'
-import { ConfigModule } from '@nestjs/config'
 import { MulterModule } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
 import { UserController } from './Rutas/user.controller'
@@ -26,6 +37,16 @@ import { RolesGuard } from './auth/guards/roles.guard'
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    PrismaModule,
+    ServicesModule,
+    PostsModule,
+    PostsAnalyticsModule,
+    TaggedModule,
+    CommentsModule,
+    ChatsModule,
+    ServiceCategoriesModule,
+    ServiceRatingModule,
+    AvailabilityModule,
     MulterModule.register({
       storage: memoryStorage(),
     }),

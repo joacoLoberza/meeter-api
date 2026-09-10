@@ -1,10 +1,11 @@
 model ChatMembers {
 	id Int @id @default(autoincrement())
-	chat Chats @relation(fields: [chatFK], references: [id])
+	chat Chats @relation(fields: [chatFK], references: [id], onDelete: Cascade)
 	chatFK Int
 	user User @relation(fields: [userFK], references: [id])
 	userFK Int
-	isAdmin Boolean?
+	isAdmin Boolean @default(false)
+	isApproved Boolean @default(true)
 
 	@@unique([chatFK, userFK])
 }
