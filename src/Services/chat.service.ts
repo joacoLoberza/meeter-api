@@ -106,9 +106,17 @@ export class ChatService {
     return chat
   }
 
-  async getMessages(chatId: number) {
+  private async assertChatMember(chatId: number, userId: number) {
+    const membership = await this.prisma.chatMembers.findFirst({
+      where: { chatFK: chatId, userFK: userId },
+    })
+    if (!membership) throw new NotFoundException('Chat no encontrado')
+  }
+
+  async getMessages(chatId: number, userId: number) {
     const chat = await this.prisma.chats.findUnique({ where: { id: chatId } })
     if (!chat) throw new NotFoundException('Chat no encontrado')
+    await this.assertChatMember(chatId, userId)
 
     return this.prisma.messages.findMany({
       where: { chatFK: chatId },
@@ -125,10 +133,7 @@ export class ChatService {
     const chat = await this.prisma.chats.findUnique({ where: { id: chatId } })
     if (!chat) throw new NotFoundException('Chat no encontrado')
 
-    const isMember = await this.prisma.chatMembers.findFirst({
-      where: { chatFK: chatId, userFK: senderId },
-    })
-    if (!isMember) throw new BadRequestException('No eres miembro de este chat')
+    await this.assertChatMember(chatId, senderId)
 
     return this.prisma.messages.create({
       data: {
@@ -149,10 +154,7 @@ export class ChatService {
     const chat = await this.prisma.chats.findUnique({ where: { id: chatId } })
     if (!chat) throw new NotFoundException('Chat no encontrado')
 
-    const isMember = await this.prisma.chatMembers.findFirst({
-      where: { chatFK: chatId, userFK: userId },
-    })
-    if (!isMember) throw new BadRequestException('No eres miembro de este chat')
+    await this.assertChatMember(chatId, userId)
 
     const text = type === 'archivo' || type === 'foto' || type === 'video'
       ? `[${type}] ${content}`
@@ -174,9 +176,10 @@ export class ChatService {
     })
   }
 
-  async getComments(chatId: number) {
+  async getComments(chatId: number, userId: number) {
     const chat = await this.prisma.chats.findUnique({ where: { id: chatId } })
     if (!chat) throw new NotFoundException('Chat no encontrado')
+    await this.assertChatMember(chatId, userId)
 
     return this.prisma.messages.findMany({
       where: { chatFK: chatId, image: { not: null } },

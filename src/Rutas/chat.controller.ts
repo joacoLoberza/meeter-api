@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Param, Body, UseGuards,
+  Controller, Get, Post, Param, Body, UseGuards, ForbiddenException,
 } from '@nestjs/common'
 import { ChatService } from '../Services/chat.service'
 import { CreateChatDto } from './dto/create-chat.dto'
@@ -14,7 +14,13 @@ export class ChatController {
 
   @Get('user/:userId')
   @UseGuards(JwtAuthGuard)
-  async getUserChats(@Param('userId') userId: string) {
+  async getUserChats(
+    @Param('userId') userId: string,
+    @CurrentUser() user: any,
+  ) {
+    if (Number(userId) !== Number(user.id)) {
+      throw new ForbiddenException('No puedes consultar los chats de otro usuario')
+    }
     return this.chatService.getUserChats(Number(userId))
   }
 
@@ -29,8 +35,11 @@ export class ChatController {
 
   @Get(':chatId/messages')
   @UseGuards(JwtAuthGuard)
-  async getMessages(@Param('chatId') chatId: string) {
-    return this.chatService.getMessages(Number(chatId))
+  async getMessages(
+    @Param('chatId') chatId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.getMessages(Number(chatId), Number(user.id))
   }
 
   @Post(':chatId/messages')
@@ -55,7 +64,10 @@ export class ChatController {
 
   @Get(':chatId/comments')
   @UseGuards(JwtAuthGuard)
-  async getComments(@Param('chatId') chatId: string) {
-    return this.chatService.getComments(Number(chatId))
+  async getComments(
+    @Param('chatId') chatId: string,
+    @CurrentUser() user: any,
+  ) {
+    return this.chatService.getComments(Number(chatId), Number(user.id))
   }
 }
