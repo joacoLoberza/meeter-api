@@ -8,6 +8,8 @@ model Events {
 	initDate DateTime @db.Timestamp
 	endingDate DateTime? @db.Timestamp
 	location String
+	latitude Float?
+	longitude Float?
 	open Boolean @default(false)
 	category EventCategories @relation(fields: [categoryFK], references: [id])
 	categoryFK Int

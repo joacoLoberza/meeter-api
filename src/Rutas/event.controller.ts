@@ -2,7 +2,7 @@ import {
   Controller, Get, Post, Patch, Delete,
   Param, Body, Query, Req, UseGuards, UseInterceptors,
   UploadedFile, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator,
-  ForbiddenException,
+  ForbiddenException, BadRequestException,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { Request } from 'express'
@@ -17,6 +17,7 @@ import { RolesGuard } from '../auth/guards/roles.guard'
 import { VerifiedGuard } from '../auth/guards/verified.guard'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { CurrentUser } from '../auth/decorators/current-user.decorator'
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard'
 
 @Controller('events')
 export class EventController {
@@ -51,17 +52,21 @@ export class EventController {
   }
 
   @Get()
-  async findAll(@Query() query: Record<string, any>) {
-    return this.eventService.findAll(query)
+  @UseGuards(new OptionalJwtAuthGuard())
+  async findAll(
+    @Query() query: Record<string, any>,
+    @Req() req: Request,
+  ) {
+    return this.eventService.findAll(query, this.optionalUserId(req))
   }
 
   @Get(':id')
+  @UseGuards(new OptionalJwtAuthGuard())
   async findOne(
     @Param('id') id: string,
     @Req() req: Request,
   ) {
-    const userId = (req as any).user?.id ?? (req as any).user?.sub
-    return this.eventService.findOne(id, userId ? String(userId) : undefined)
+    return this.eventService.findOne(id, this.optionalUserId(req))
   }
 
   @Patch(':id')
@@ -101,14 +106,23 @@ export class EventController {
   @UseGuards(JwtAuthGuard, VerifiedGuard)
   async addGuest(
     @Param('id') id: string,
-    @Body('userId') guestUserId: number,
+    @Body('userId') guestUserId: number | undefined,
     @CurrentUser() user: any,
   ) {
     const event = await this.eventService.findOne(id, String(user.id))
-    if ((event as any).userFK !== user.id && user.role !== 'ADMIN') {
+    const currentUserId = Number(user.id)
+    const targetUserId = Number(guestUserId ?? currentUserId)
+    if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+      throw new BadRequestException('El ID del invitado no es válido')
+    }
+    if (
+      targetUserId !== currentUserId &&
+      (event as any).userFK !== currentUserId &&
+      user.role !== 'ADMIN'
+    ) {
       throw new ForbiddenException('Solo el dueño del evento puede añadir invitados')
     }
-    return this.guestsService.addGuest(Number(id), guestUserId)
+    return this.guestsService.addGuest(Number(id), targetUserId)
   }
 
   @Delete(':id/guests/:guestId')
@@ -119,10 +133,19 @@ export class EventController {
     @CurrentUser() user: any,
   ) {
     const event = await this.eventService.findOne(id, String(user.id))
-    if ((event as any).userFK !== user.id && user.role !== 'ADMIN') {
+    const currentUserId = Number(user.id)
+    const targetUserId = Number(guestId)
+    if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+      throw new BadRequestException('El ID del invitado no es válido')
+    }
+    if (
+      targetUserId !== currentUserId &&
+      (event as any).userFK !== currentUserId &&
+      user.role !== 'ADMIN'
+    ) {
       throw new ForbiddenException('Solo el dueño del evento puede quitar invitados')
     }
-    return this.guestsService.removeGuest(Number(id), Number(guestId))
+    return this.guestsService.removeGuest(Number(id), targetUserId)
   }
 
   @Get(':id/guests')
@@ -140,7 +163,7 @@ export class EventController {
   ) {
     const event = await this.eventService.findOne(id, String(user.id))
     const eventData = event as any
-    if (eventData.userFK !== user.id && user.role !== 'ADMIN') {
+    if (eventData.userFK !== Number(user.id) && user.role !== 'ADMIN') {
       throw new ForbiddenException('Solo el dueño del evento puede enviar invitaciones')
     }
     await this.emailService.sendInvitation(email, eventData.name, user.name || user.user)
@@ -183,5 +206,11 @@ export class EventController {
 
       uploadStream.end(file.buffer)
     })
+  }
+
+  private optionalUserId(req: Request): string | undefined {
+    const user = (req as any).user
+    const userId = user?.id ?? user?.sub
+    return userId == null ? undefined : String(userId)
   }
 }
