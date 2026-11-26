@@ -22,6 +22,12 @@ import { ChatController } from './Rutas/chat.controller'
 import { ChatService } from './Services/chat.service'
 import { PrismaClientExceptionFilter } from './common/filters/prisma-exception.filter'
 import { RolesGuard } from './auth/guards/roles.guard'
+import { PrismaModule } from './prisma/prisma.module'
+import { ServicesModule } from './Services/services.module'
+import { PostsModule } from './posts/posts.module'
+import { PostsAnalyticsModule } from './posts-analytics/posts-analytics.module'
+import { TaggedModule } from './tagged/tagged.module'
+import { CommentsModule } from './comments/comments.module'
 
 @Module({
   imports: [
@@ -29,6 +35,12 @@ import { RolesGuard } from './auth/guards/roles.guard'
     MulterModule.register({
       storage: memoryStorage(),
     }),
+    PrismaModule,
+    ServicesModule,
+    PostsModule,
+    PostsAnalyticsModule,
+    TaggedModule,
+    CommentsModule,
   ],
   controllers: [
     AuthController,
@@ -45,7 +57,6 @@ import { RolesGuard } from './auth/guards/roles.guard'
     EventService,
     EventCategoriesService,
     ServiceCategoriesService,
-    PrismaService,
     GuestsService,
     EventRatingService,
     EmailService,

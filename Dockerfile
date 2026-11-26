@@ -20,7 +20,7 @@ COPY . .
 RUN npx prisma generate
 
 # Compilamos el proyecto (TS -> JS)
-RUN npm run build
+RUN npx nest build
 
 # --- ETAPA 2: Producción (Runtime) ---
 FROM node:20-alpine
@@ -35,6 +35,8 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/prisma.config.ts ./
+COPY --from=builder /app/tsconfig.json ./
 
 # Exponemos el puerto de NestJS
 EXPOSE 3000
@@ -42,5 +44,5 @@ EXPOSE 3000
 # Entorno de producción
 ENV NODE_ENV=production
 
-# Comando: Genera cliente de Prisma y luego inicia la App
-CMD ["sh", "-c", "npx prisma generate && npm run start:prod"]
+# Comando: Sincroniza esquema de DB en PostgreSQL y luego inicia la App
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && npm run start:prod"]

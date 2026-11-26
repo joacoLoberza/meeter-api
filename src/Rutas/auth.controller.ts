@@ -14,4 +14,10 @@ export class AuthController {
   login(@Body() dto: { user: string; password: string }) {
     return this.authService.login(dto)
   }
+
+  @Post('google')
+  google(@Body() dto: { idToken: string }) {
+    return this.authService.googleLogin(dto)
+  }
+
 }

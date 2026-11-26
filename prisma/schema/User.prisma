@@ -10,8 +10,9 @@ model User {
 	role Role @default(CONSUMER)
 	user String @unique
 	name String
-	password String
+	password String?
 	email String @unique
+	googleId String? @unique
 	verified Boolean @default(false)
 	image String @default("https://undefined.com") //Acá hay que poener la URL a la imágen por default de Cloudinary (o sea, una cosa gris con un dibujito sensillo).
 	dni String? @unique

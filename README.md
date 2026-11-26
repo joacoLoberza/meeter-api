@@ -28,11 +28,30 @@ Backend en NestJS que expone una API REST para la plataforma Meeter.
 
 ### Endpoints principales
 
-- **Auth** — `POST /auth/register` y `POST /auth/login`. Registro con nombre, email, DNI (obligatorio) y domicilio (opcional). Devuelve JWT.
+- **Auth** — `POST /auth/register`, `POST /auth/login` (compatibilidad legacy) y `POST /auth/google`. El login con Google valida el ID token, crea o vincula la cuenta por email y devuelve el JWT. El cliente Matriz usa exclusivamente Google.
 - **Eventos** — CRUD completo (`GET /events`, `POST /events`, `GET /events/:id`, `PATCH /events/:id`, `DELETE /events/:id`). Soporta filtros por búsqueda, categoría, ubicación, fecha y paginación con cursor.
 - **Categorías** — `GET /events/categories` lista las categorías disponibles para eventos.
 - **Invitados** — Agregar/remover/ listar invitados de un evento, con verificación de pertenencia.
 - **Rating** — Calificar eventos (crear y eliminar).
+
+### Google Sign-In
+
+El endpoint `POST /auth/google` recibe `{ "idToken": "..." }`, verifica el token con `google-auth-library` y devuelve `{ token, user }`.
+
+Requisitos:
+
+- Definir `GOOGLE_CLIENT_ID` con el Client ID **Web** de Google Cloud (el mismo que usa Flutter como `serverClientId`).
+- Sincronizar el esquema para agregar `User.googleId` y permitir `password` nulo:
+
+```bash
+DATABASE_URL="postgresql://admin:adminpassword@localhost:5432/fiestas_db" npx prisma db push
+```
+
+- Si el email ya existe, la cuenta se vincula automáticamente y se marca `verified: true`. Si no existe, se crea con `password: null` y un nombre de usuario derivado del email.
+
+```bash
+GOOGLE_CLIENT_ID="tu-client-id.apps.googleusercontent.com" npm run start:dev
+```
 
 ### Estructura de archivos
 

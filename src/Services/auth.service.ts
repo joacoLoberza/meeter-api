@@ -1,10 +1,21 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common'
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common'
+import { OAuth2Client } from 'google-auth-library'
 import { JwtService } from './jwt.service'
 import { PrismaService } from './prisma.service'
 import * as bcrypt from 'bcryptjs'
 
+const DEFAULT_USER_IMAGE = 'https://undefined.com'
+
 @Injectable()
 export class AuthService {
+  private readonly googleClient = new OAuth2Client()
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
@@ -42,6 +53,9 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Credenciales inválidas')
     }
+    if (!user.password) {
+      throw new UnauthorizedException('Esta cuenta usa Google. Inicia sesión con Google.')
+    }
 
     const valid = await bcrypt.compare(dto.password, user.password)
     if (!valid) {
@@ -51,5 +65,117 @@ export class AuthService {
     const token = this.jwtService.sign({ id: user.id, role: user.role })
     const { password, ...userData } = user
     return { token, user: userData }
+  }
+
+  /**
+   * Inicia sesión (o crea la cuenta) a partir de un ID token de Google.
+   *
+   * El token se verifica contra Google, por lo que no hace falta enviar
+   * contraseña ni hacer un proceso de verificación de email propio.
+   * Si ya existe una cuenta con el mismo email, se vincula automáticamente.
+   */
+  async googleLogin(dto: { idToken: string }) {
+    const idToken = dto?.idToken?.trim()
+    if (!idToken) {
+      throw new BadRequestException('El token de Google es obligatorio')
+    }
+
+    const audiences = (process.env.GOOGLE_CLIENT_ID ?? '')
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0)
+
+    if (audiences.length === 0) {
+      throw new ServiceUnavailableException(
+        'Google Sign-In no está configurado en el servidor. Falta GOOGLE_CLIENT_ID.',
+      )
+    }
+
+    let payload
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: audiences,
+      })
+      payload = ticket.getPayload()
+    } catch {
+      throw new UnauthorizedException('El token de Google es inválido o expiró')
+    }
+
+    const googleId = payload?.sub?.trim()
+    const email = payload?.email?.trim().toLowerCase()
+
+    if (!payload || !googleId || !email) {
+      throw new UnauthorizedException('Google no devolvió los datos necesarios')
+    }
+    if (payload.email_verified !== true) {
+      throw new UnauthorizedException('Tu cuenta de Google no tiene el email verificado')
+    }
+
+    let user = await this.prisma.user.findUnique({ where: { googleId } })
+
+    if (!user) {
+      // El email de Google llega en minúsculas; buscamos sin distinguir
+      // mayúsculas para no duplicar cuentas creadas con otro formato.
+      const existingByEmail = await this.prisma.user.findFirst({
+        where: { email: { equals: email, mode: 'insensitive' } },
+      })
+
+      if (existingByEmail) {
+        if (existingByEmail.googleId && existingByEmail.googleId !== googleId) {
+          throw new ConflictException('Este email ya está vinculado a otra cuenta de Google')
+        }
+
+        const picture = payload.picture?.trim()
+        user = await this.prisma.user.update({
+          where: { id: existingByEmail.id },
+          data: {
+            googleId,
+            verified: true,
+            ...(picture && existingByEmail.image === DEFAULT_USER_IMAGE
+              ? { image: picture }
+              : {}),
+          },
+        })
+      } else {
+        const username = await this.generateUsername(email)
+        const picture = payload.picture?.trim()
+        user = await this.prisma.user.create({
+          data: {
+            user: username,
+            name: payload.name?.trim() || username,
+            email,
+            password: null,
+            verified: true,
+            googleId,
+            ...(picture ? { image: picture } : {}),
+          },
+        })
+      }
+    }
+
+    const token = this.jwtService.sign({ id: user.id, role: user.role })
+    const { password, ...userData } = user
+    return { token, user: userData }
+  }
+
+  /** Genera un nombre de usuario único a partir del email de Google. */
+  private async generateUsername(email: string): Promise<string> {
+    const localPart = email.split('@')[0] ?? ''
+    const base =
+      localPart
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]/g, '')
+        .slice(0, 24) || 'usuario'
+
+    let candidate = base
+    let suffix = 0
+
+    while (await this.prisma.user.findUnique({ where: { user: candidate } })) {
+      suffix += 1
+      candidate = `${base}${suffix}`
+    }
+
+    return candidate
   }
 }
