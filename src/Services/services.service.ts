@@ -20,9 +20,11 @@ export class ServicesService {
     // Filtro obligatorio para ignorar registros eliminados (Soft Delete)
     whereConditions.push(Prisma.sql` "Services"."deletedAt" IS NULL `);
 
-    // Paginación por cursor
-    const operator = data.order === 'DESC' ? Prisma.raw('<') : Prisma.raw('>');
-    whereConditions.push(Prisma.sql` "Services"."id" ${operator} ${data.cursor} `);
+    // Paginación por cursor (opcional: sin cursor devuelve la primera página)
+    if (data.cursor !== undefined) {
+      const operator = data.order === 'DESC' ? Prisma.raw('<') : Prisma.raw('>');
+      whereConditions.push(Prisma.sql` "Services"."id" ${operator} ${data.cursor} `);
+    }
 
     // Filtro por rating
     if (data.rating) {
@@ -69,7 +71,7 @@ export class ServicesService {
         "Cat"."name" AS "catName"
       FROM "Services"
       INNER JOIN "User" ON "Services"."userFK" = "User"."id"
-      INNER JOIN "ServicesCategories" AS "Cat" ON "Services"."categoryFK" = "Cat"."id"
+      INNER JOIN "ServiceCategories" AS "Cat" ON "Services"."categoryFK" = "Cat"."id"
       ${whereClause}
       ORDER BY "Services"."id" ${orderDirection}
       LIMIT ${data.limit}

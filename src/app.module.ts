@@ -45,9 +45,9 @@ import { CommentsModule } from './comments/comments.module'
   controllers: [
     AuthController,
     UserController,
-    EventController,
     EventCategoriesController,
     ServiceCategoriesController,
+    EventController,
     ChatController,
   ],
   providers: [

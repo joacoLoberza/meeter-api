@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsOptional, IsInt, IsNumber } from "class-validator";
+import { IsOptional, IsInt, IsNumber, IsString, IsEnum } from "class-validator";
 
 enum Order {
 	ASC = 'ASC',
@@ -7,6 +7,8 @@ enum Order {
 }
 
 export default class GetServicesDto {
+	@IsOptional()
+	@IsString()
 	search?: string = '';
 
 	@IsOptional()
@@ -14,6 +16,8 @@ export default class GetServicesDto {
 	@IsInt()
 	cursor?: number;
 	
+	@IsOptional()
+	@IsEnum(Order)
 	order?: Order = Order.ASC;
 
 	@IsOptional()
