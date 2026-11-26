@@ -22,6 +22,7 @@ import { ChatController } from './Rutas/chat.controller'
 import { ChatService } from './Services/chat.service'
 import { PrismaClientExceptionFilter } from './common/filters/prisma-exception.filter'
 import { RolesGuard } from './auth/guards/roles.guard'
+import { VerifiedGuard } from './auth/guards/verified.guard'
 import { PrismaModule } from './prisma/prisma.module'
 import { ServicesModule } from './Services/services.module'
 import { PostsModule } from './posts/posts.module'
@@ -62,6 +63,7 @@ import { CommentsModule } from './comments/comments.module'
     EmailService,
     ChatService,
     RolesGuard,
+    VerifiedGuard,
     {
       provide: APP_FILTER,
       useClass: PrismaClientExceptionFilter,
