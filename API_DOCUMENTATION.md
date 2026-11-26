@@ -120,6 +120,7 @@ class ApiConfig {
   - `category` (number): ID de la categoría.
   - `location` (string): Filtra por ubicación.
   - `initDate` (string): Fecha inicio ISO.
+  - `following` (`true` | `false`): Si es `true`, filtra solo eventos creados por usuarios que seguís (**requiere enviar token JWT**; si no hay sesión retorna `401`).
   - `limit` (number): Cantidad por página (default: 20).
   - `cursor` (number): ID del último evento para paginación.
 
@@ -223,8 +224,28 @@ class ApiConfig {
 ### 👤 Usuarios (`/users`)
 
 #### `GET /users/:id`
-- **Descripción:** Obtener información pública del perfil de un usuario.
+- **Descripción:** Obtener información pública del perfil de un usuario (incluye `followersCount`, `followingCount`, `eventsCount` e `isFollowing` respecto a la sesión activa).
 - **Requiere Auth:** Sí.
+
+#### `POST /users/:id/follow`
+- **Descripción:** Seguir al usuario `:id`. No se puede seguir a uno mismo (`400`) y el usuario inexistente devuelve `404`. Es idempotente.
+- **Requiere Auth:** Sí (JWT).
+
+#### `DELETE /users/:id/follow`
+- **Descripción:** Dejar de seguir al usuario `:id`. Es idempotente.
+- **Requiere Auth:** Sí (JWT).
+
+#### `GET /users/:id/followers`
+- **Descripción:** Listar seguidores del usuario `:id`.
+- **Requiere Auth:** Sí (JWT).
+- **Query params:** `limit` (1-100, default 50), `offset` (default 0).
+- **Respuesta:** `{ total, limit, offset, data: [{ id, user, name, image, verified, role, followedAt }] }`.
+
+#### `GET /users/:id/following`
+- **Descripción:** Listar usuarios a los que sigue `:id`.
+- **Requiere Auth:** Sí (JWT).
+- **Query params:** `limit` (1-100, default 50), `offset` (default 0).
+- **Respuesta:** `{ total, limit, offset, data: [{ id, user, name, image, verified, role, followedAt }] }`.
 
 #### `PATCH /users/:id`
 - **Descripción:** Modificar datos del perfil propio.

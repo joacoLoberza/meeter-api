@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { User } from '@prisma/client'
 import { UpdateUserDto } from '../Rutas/dto/update-user.dto'
 import { PrismaService } from './prisma.service'
@@ -10,6 +10,7 @@ export class UserService {
   ) {}
 
   private readonly publicSelect = {
+    id: true,
     role: true,
     user: true,
     name: true,
@@ -19,6 +20,15 @@ export class UserService {
     dni: true,
     address: true,
     cuit: true,
+  }
+
+  private readonly followUserSelect = {
+    id: true,
+    user: true,
+    name: true,
+    image: true,
+    verified: true,
+    role: true,
   }
 
   async findAll(page: number = 1, limit: number = 20): Promise<any[]> {
@@ -37,19 +47,157 @@ export class UserService {
     })
   }
 
-  async findOne(id: string): Promise<any> {
+  async findOne(id: string, currentUserId?: number): Promise<any> {
+    const targetId = Number(id)
     const user = await this.prisma.user.findUnique({
-      where: { id: Number(id) },
-      select: this.publicSelect,
+      where: { id: targetId },
+      select: {
+        ...this.publicSelect,
+        _count: {
+          select: {
+            followersRel: true,
+            followingRel: true,
+            eventsRel: true,
+          },
+        },
+      },
     })
     if (!user) {
       throw new NotFoundException('Usuario no encontrado')
     }
-    if (user.role !== 'OFFERER') {
-      const { address, cuit, ...result } = user as any
+
+    let isFollowing = false
+    if (currentUserId && currentUserId !== targetId) {
+      const relation = await this.prisma.follows.findUnique({
+        where: {
+          followerFK_followingFK: {
+            followerFK: currentUserId,
+            followingFK: targetId,
+          },
+        },
+        select: { id: true },
+      })
+      isFollowing = Boolean(relation)
+    }
+
+    const { _count, ...userData } = user as any
+    const formatted = {
+      ...userData,
+      followersCount: _count.followersRel,
+      followingCount: _count.followingRel,
+      eventsCount: _count.eventsRel,
+      isFollowing,
+    }
+
+    if (formatted.role !== 'OFFERER') {
+      const { address, cuit, ...result } = formatted
       return result
     }
-    return user
+    return formatted
+  }
+
+  private async ensureUserExists(userId: number) {
+    const exists = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    })
+    if (!exists) {
+      throw new NotFoundException('Usuario no encontrado')
+    }
+  }
+
+  async followUser(followerId: number, targetUserId: number) {
+    if (followerId === targetUserId) {
+      throw new BadRequestException('No podés seguirte a vos mismo')
+    }
+    await this.ensureUserExists(targetUserId)
+
+    await this.prisma.follows.upsert({
+      where: {
+        followerFK_followingFK: {
+          followerFK: followerId,
+          followingFK: targetUserId,
+        },
+      },
+      update: {},
+      create: {
+        followerFK: followerId,
+        followingFK: targetUserId,
+      },
+    })
+
+    return {
+      message: 'Usuario seguido correctamente',
+      following: true,
+      targetUserId,
+    }
+  }
+
+  async unfollowUser(followerId: number, targetUserId: number) {
+    await this.ensureUserExists(targetUserId)
+
+    await this.prisma.follows.deleteMany({
+      where: {
+        followerFK: followerId,
+        followingFK: targetUserId,
+      },
+    })
+
+    return {
+      message: 'Dejaste de seguir al usuario',
+      following: false,
+      targetUserId,
+    }
+  }
+
+  async getFollowers(userId: number, limit = 50, offset = 0) {
+    await this.ensureUserExists(userId)
+
+    const [total, rows] = await Promise.all([
+      this.prisma.follows.count({ where: { followingFK: userId } }),
+      this.prisma.follows.findMany({
+        where: { followingFK: userId },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        select: {
+          createdAt: true,
+          follower: { select: this.followUserSelect },
+        },
+      }),
+    ])
+
+    return {
+      total,
+      limit,
+      offset,
+      data: rows.map((r) => ({ ...r.follower, followedAt: r.createdAt })),
+    }
+  }
+
+  async getFollowing(userId: number, limit = 50, offset = 0) {
+    await this.ensureUserExists(userId)
+
+    const [total, rows] = await Promise.all([
+      this.prisma.follows.count({ where: { followerFK: userId } }),
+      this.prisma.follows.findMany({
+        where: { followerFK: userId },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        select: {
+          createdAt: true,
+          following: { select: this.followUserSelect },
+        },
+      }),
+    ])
+
+    return {
+      total,
+      limit,
+      offset,
+      data: rows.map((r) => ({ ...r.following, followedAt: r.createdAt })),
+    }
   }
 
   async update(id: string, dto: UpdateUserDto): Promise<Omit<User, 'password'>> {

@@ -33,4 +33,6 @@ model User {
 	commentLikesRel CommentLikes[]
 	commentsRel Comment[]
 	chatMembersRel ChatMembers[]
+	followingRel Follows[] @relation("UserFollowing")
+	followersRel Follows[] @relation("UserFollowers")
 }

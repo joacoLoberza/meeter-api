@@ -5,6 +5,7 @@ import {
   BadRequestException,
   BadGatewayException,
   ServiceUnavailableException,
+  UnauthorizedException,
 } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
 import { PrismaService } from './prisma.service'
@@ -126,6 +127,17 @@ export class EventService {
       where.open = true
     } else if (query.open === 'false') {
       where.open = false
+    }
+
+    if (query.following === 'true' || query.following === true) {
+      if (!userId) {
+        throw new UnauthorizedException('Debes iniciar sesión para ver eventos de quienes seguís')
+      }
+      where.owner = {
+        followersRel: {
+          some: { followerFK: Number(userId) },
+        },
+      }
     }
 
     const initDateFilter: any = {}
