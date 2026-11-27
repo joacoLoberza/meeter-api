@@ -150,6 +150,38 @@ export class UserService {
     }
   }
 
+  /**
+   * Lista los "amigos" del usuario: los que se siguen mutuamente.
+   * Son las únicas personas con las que se puede abrir un chat.
+   */
+  async getFriends(userId: number, limit = 50, offset = 0) {
+    const mutualFilter = {
+      followerFK: userId,
+      following: { followersRel: { some: { followerFK: userId } } },
+    }
+
+    const [total, rows] = await Promise.all([
+      this.prisma.follows.count({ where: mutualFilter }),
+      this.prisma.follows.findMany({
+        where: mutualFilter,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        select: {
+          createdAt: true,
+          following: { select: this.followUserSelect },
+        },
+      }),
+    ])
+
+    return {
+      total,
+      limit,
+      offset,
+      data: rows.map((r) => ({ ...r.following, followedAt: r.createdAt })),
+    }
+  }
+
   async getFollowers(userId: number, limit = 50, offset = 0) {
     await this.ensureUserExists(userId)
 

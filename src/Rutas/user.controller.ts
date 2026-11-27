@@ -18,6 +18,25 @@ export class UserController {
     return this.userService.findAll()
   }
 
+  /**
+   * Lista los amigos (seguimiento mutuo).
+   * Ojo: debe declararse antes que `@Get(':id')` para que Express no
+   * interprete "friends" como un id.
+   */
+  @Get('friends')
+  @UseGuards(JwtAuthGuard)
+  async getFriends(
+    @CurrentUser() user: any,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.userService.getFriends(
+      Number(user.id ?? user.sub),
+      this.toLimit(limit),
+      this.toOffset(offset),
+    )
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async findOne(@Param('id') id: string, @CurrentUser() user: any) {

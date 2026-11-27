@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common'
 import { PrismaService } from './prisma.service'
 
@@ -82,6 +83,22 @@ export class ChatService {
 
     const recipient = await this.prisma.user.findUnique({ where: { id: recipientId } })
     if (!recipient) throw new NotFoundException('Usuario no encontrado')
+
+    // Solo se puede abrir un chat con "amigos": quienes se siguen mutuamente.
+    const mutualFollow = await this.prisma.follows.findFirst({
+      where: {
+        followerFK: userId,
+        followingFK: recipientId,
+        following: { followersRel: { some: { followerFK: userId } } },
+      },
+      select: { id: true },
+    })
+
+    if (!mutualFollow) {
+      throw new ForbiddenException(
+        'Solo podés chatear con personas que te siguen de vuelta (tus amigos)',
+      )
+    }
 
     const chat = await this.prisma.chats.create({
       data: {
