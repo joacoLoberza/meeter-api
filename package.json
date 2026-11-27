@@ -23,6 +23,7 @@
     "start:prod": "node dist/main",
     "db:push": "prisma db push --accept-data-loss",
     "db:seed:categories": "node scripts/seed-categories.js",
+    "db:seed:demo-follow": "node scripts/seed-demo-follow.js",
     "db:cleanup:test-data": "node scripts/cleanup-test-data.js",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
