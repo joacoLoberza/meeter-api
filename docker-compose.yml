@@ -17,9 +17,9 @@ services:
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME:-}
       - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY:-}
       - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET:-}
-      - EMAIL_HOST=${EMAIL_HOST:-smtp.gmail.com}
-      - EMAIL_PORT=${EMAIL_PORT:-587}
-      - EMAIL_USER=${EMAIL_USER:-}
+      - EMAIL_HOST=${EMAIL_HOST:-mail.matriz.social}
+      - EMAIL_PORT=${EMAIL_PORT:-25}
+      - EMAIL_USER=${EMAIL_USER:-no-replay@matriz.social}
       - EMAIL_PASSWORD=${EMAIL_PASSWORD:-}
     depends_on:
       db_postgres:

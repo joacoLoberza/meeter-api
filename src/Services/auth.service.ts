@@ -2,12 +2,14 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common'
 import { OAuth2Client } from 'google-auth-library'
 import { JwtService } from './jwt.service'
 import { PrismaService } from './prisma.service'
+import { EmailService } from './email.service'
 import * as bcrypt from 'bcryptjs'
 
 const DEFAULT_USER_IMAGE = 'https://undefined.com'
@@ -15,11 +17,29 @@ const DEFAULT_USER_IMAGE = 'https://undefined.com'
 @Injectable()
 export class AuthService {
   private readonly googleClient = new OAuth2Client()
+  private readonly logger = new Logger(AuthService.name)
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
+    private readonly emailService: EmailService,
   ) {}
+
+  /**
+   * Envía el aviso de ingreso sin bloquear la autenticación: si el servidor
+   * de correo falla, se registra el problema pero el login sigue adelante.
+   */
+  private async notifyLogin(user: { email: string; name: string; user: string }, method: string): Promise<void> {
+    if (!user.email) return
+
+    try {
+      await this.emailService.sendLoginNotification(user.email, user.name || user.user, method)
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo enviar el aviso de ingreso a ${user.email}: ${(error as Error).message}`,
+      )
+    }
+  }
 
   async register(dto: { user: string; name: string; email: string; password: string; dni?: string; address?: string }) {
     const existingUser = await this.prisma.user.findFirst({
@@ -64,6 +84,7 @@ export class AuthService {
 
     const token = this.jwtService.sign({ id: user.id, role: user.role })
     const { password, ...userData } = user
+    await this.notifyLogin(user, 'tu contraseña')
     return { token, user: userData }
   }
 
@@ -156,6 +177,7 @@ export class AuthService {
 
     const token = this.jwtService.sign({ id: user.id, role: user.role })
     const { password, ...userData } = user
+    await this.notifyLogin(user, 'tu cuenta de Google')
     return { token, user: userData }
   }
 
