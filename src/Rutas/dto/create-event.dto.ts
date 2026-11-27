@@ -1,5 +1,20 @@
-import { IsString, IsOptional, IsNumber, IsDateString, Min, Max, IsBoolean } from 'class-validator'
-import { Type } from 'class-transformer'
+import {
+  IsString,
+  IsOptional,
+  IsNumber,
+  IsDateString,
+  Min,
+  Max,
+  IsBoolean,
+} from 'class-validator'
+import { Transform, Type } from 'class-transformer'
+
+/** Convierte a número sólo si viene informado (si no, lo deja undefined). */
+const optionalNumber = ({ value }: { value: unknown }) => {
+  if (value === undefined || value === null || value === '') return undefined
+  const parsed = Number(value)
+  return Number.isNaN(parsed) ? value : parsed
+}
 
 export class CreateEventDto {
   @IsString()
@@ -33,12 +48,18 @@ export class CreateEventDto {
   @Max(180)
   longitude?: number
 
+  /** Opcional: si no se manda, el backend usa la primera categoría disponible. */
+  @IsOptional()
+  @Transform(optionalNumber)
   @IsNumber()
-  categoryFK!: number
+  categoryFK?: number
 
+  /** Opcional: si no se manda, el evento es gratuito (0). */
+  @IsOptional()
+  @Transform(optionalNumber)
   @IsNumber()
   @Min(0)
-  ticketPrice!: number
+  ticketPrice?: number
 
   @IsOptional()
   @IsBoolean()

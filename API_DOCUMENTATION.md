@@ -147,10 +147,23 @@ class ApiConfig {
   "open": true
 }
 ```
+- **Campos opcionales:**
+  - `ticketPrice`: si no se manda, el evento queda **gratuito** (`0`). Es un entero, mayor o igual a 0.
+  - `categoryFK`: si no se manda, se usa la primera categoría de eventos disponible.
+- **Formato de `location`:** acepta cualquiera de estos y nunca bloquea la creación del evento:
+  - Texto libre: `"Av. Corrientes 1234, CABA"`.
+  - Coordenadas: `"-34.6037, -58.3816"`.
+  - Link de Google Maps: `"https://maps.app.goo.gl/abc"`, `"https://www.google.com/maps/@-34.6037,-58.3816,17z"`, `"https://www.google.com/maps/place/La+Pampa/@-34.6053,-58.3825,17z"`, `"https://www.google.com/maps/search/?api=1&query=La+Pampa"`.
+  - Link de OpenStreetMap: `"https://www.openstreetmap.org/#map=17/-34.6037/-58.3816"`.
+  - URI `geo:`: `"geo:-34.6037,-58.3816?q=Obelisco"`.
+  - Si el link trae coordenadas, se usan esas. Si trae un nombre/dirección, se guarda ese texto como `location` y se intenta geocodificar.
+  - Si el geocodificador (OpenStreetMap/Nominatim) no reconoce el texto, **el evento se crea igual** con `latitude`/`longitude` en `null` y la ubicación escrita tal cual. Sólo falla (`400`) si `location` viene vacío.
+- **Opcional:** también podés mandar `latitude` y `longitude` (juntos) para evitar el geocodificado.
 
 #### `PATCH /events/:id`
 - **Descripción:** Actualizar evento existente.
 - **Requiere Auth:** Sí (Solo el creador o Admin).
+- **Notas:** `location` acepta los mismos formatos que `POST /events`; `ticketPrice` en `0` deja el evento gratuito.
 
 #### `DELETE /events/:id`
 - **Descripción:** Eliminar un evento.
@@ -227,6 +240,12 @@ class ApiConfig {
 - **Descripción:** Obtener información pública del perfil de un usuario (incluye `followersCount`, `followingCount`, `eventsCount` e `isFollowing` respecto a la sesión activa).
 - **Requiere Auth:** Sí.
 
+#### `GET /users/friends`
+- **Descripción:** Listar los **amigos** del usuario autenticado: las personas con las que hay **seguimiento mutuo** (te siguen y vos los seguís). Son las únicas personas con las que se puede abrir un chat.
+- **Requiere Auth:** Sí (JWT).
+- **Query params:** `limit` (1-100, default 50), `offset` (default 0).
+- **Respuesta:** `{ total, limit, offset, data: [{ id, user, name, image, verified, role, followedAt }] }`.
+
 #### `POST /users/:id/follow`
 - **Descripción:** Seguir al usuario `:id`. No se puede seguir a uno mismo (`400`) y el usuario inexistente devuelve `404`. Es idempotente.
 - **Requiere Auth:** Sí (JWT).
@@ -272,7 +291,7 @@ class ApiConfig {
 - **Requiere Auth:** Sí.
 
 #### `POST /chats`
-- **Descripción:** Iniciar un nuevo chat con otro usuario.
+- **Descripción:** Iniciar un nuevo chat con otro usuario. Solo se permite con **amigos** (seguimiento mutuo): el destinatario tiene que seguirte y vos tenés que seguirlo. Si no, responde `403`.
 - **Requiere Auth:** Sí.
 - **Body (`JSON`):**
 ```json

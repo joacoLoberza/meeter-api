@@ -1,5 +1,12 @@
 import { IsString, IsOptional, IsNumber, IsDateString, IsBoolean, Min, Max } from 'class-validator'
-import { Type } from 'class-transformer'
+import { Transform, Type } from 'class-transformer'
+
+/** Convierte a número sólo si viene informado (si no, lo deja undefined). */
+const optionalNumber = ({ value }: { value: unknown }) => {
+  if (value === undefined || value === null || value === '') return undefined
+  const parsed = Number(value)
+  return Number.isNaN(parsed) ? value : parsed
+}
 
 export class UpdateEventDto {
   @IsOptional()
@@ -41,10 +48,12 @@ export class UpdateEventDto {
   open?: boolean
 
   @IsOptional()
+  @Transform(optionalNumber)
   @IsNumber()
   categoryFK?: number
 
   @IsOptional()
+  @Transform(optionalNumber)
   @IsNumber()
   @Min(0)
   ticketPrice?: number

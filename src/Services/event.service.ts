@@ -11,10 +11,18 @@ import { Prisma } from '@prisma/client'
 import { PrismaService } from './prisma.service'
 import { CreateEventDto } from '../Rutas/dto/create-event.dto'
 import { UpdateEventDto } from '../Rutas/dto/update-event.dto'
+import {
+  Coordinates,
+  ParsedLocation,
+  parseMapLocation,
+} from './map-location'
 
-type EventCoordinates = {
-  latitude: number
-  longitude: number
+type EventCoordinates = Coordinates
+
+type ResolvedLocation = {
+  display: string
+  latitude: number | null
+  longitude: number | null
 }
 
 @Injectable()
@@ -40,6 +48,27 @@ export class EventService {
     if (!category) {
       throw new BadRequestException('La categoría de evento especificada no existe')
     }
+  }
+
+  /**
+   * Si el usuario no manda categoría se usa la primera disponible, así el
+   * evento nunca queda bloqueado por un detalle del formulario.
+   */
+  private async resolveCategoryFK(categoryFK?: number): Promise<number> {
+    if (categoryFK !== undefined && categoryFK !== null) {
+      await this.ensureEventCategoryExists(categoryFK)
+      return categoryFK
+    }
+
+    const fallback = await this.prisma.eventCategories.findFirst({
+      orderBy: { id: 'asc' },
+    })
+    if (!fallback) {
+      throw new BadRequestException(
+        'No hay categorías de evento configuradas en el sistema',
+      )
+    }
+    return fallback.id
   }
 
   private readonly ownerPublicSelect = {
@@ -70,13 +99,9 @@ export class EventService {
   } satisfies Prisma.EventsInclude
 
   async create(dto: CreateEventDto, userId: string, imageUrl?: string) {
-    await this.ensureEventCategoryExists(dto.categoryFK)
-    const location = dto.location.trim()
-    if (!location) {
-      throw new BadRequestException('La ubicación del evento no puede estar vacía')
-    }
-    const coordinates = await this.resolveCoordinates(
-      location,
+    const categoryFK = await this.resolveCategoryFK(dto.categoryFK)
+    const location = await this.resolveEventLocation(
+      dto.location,
       dto.latitude,
       dto.longitude,
     )
@@ -86,11 +111,12 @@ export class EventService {
       name: dto.name,
       description: dto.description ?? null,
       initDate: this.parseDate(dto.initDate),
-      location,
-      latitude: coordinates.latitude,
-      longitude: coordinates.longitude,
-      categoryFK: dto.categoryFK,
-      ticketPrice: dto.ticketPrice,
+      location: location.display,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      categoryFK,
+      // Sin precio informado el evento es gratuito (0).
+      ticketPrice: Math.round(dto.ticketPrice ?? 0),
       open: dto.open ?? false,
     }
 
@@ -268,7 +294,6 @@ export class EventService {
       if (typeof dto.location !== 'string' || !dto.location.trim()) {
         throw new BadRequestException('La ubicación del evento no puede estar vacía')
       }
-      data.location = dto.location.trim()
     }
     if (dto.latitude !== undefined) data.latitude = dto.latitude
     if (dto.longitude !== undefined) data.longitude = dto.longitude
@@ -278,7 +303,9 @@ export class EventService {
       await this.ensureEventCategoryExists(dto.categoryFK)
       data.categoryFK = dto.categoryFK
     }
-    if (dto.ticketPrice !== undefined) data.ticketPrice = dto.ticketPrice
+    if (dto.ticketPrice !== undefined) {
+      data.ticketPrice = Math.round(dto.ticketPrice)
+    }
 
     const hasLatitude = dto.latitude !== undefined
     const hasLongitude = dto.longitude !== undefined
@@ -291,13 +318,14 @@ export class EventService {
         data.latitude = null
         data.longitude = null
       } else {
-        const coordinates = await this.resolveCoordinates(
+        const resolved = await this.resolveEventLocation(
           dto.location ?? event.location,
           dto.latitude,
           dto.longitude,
         )
-        data.latitude = coordinates.latitude
-        data.longitude = coordinates.longitude
+        data.location = resolved.display
+        data.latitude = resolved.latitude
+        data.longitude = resolved.longitude
       }
     } else if (
       dto.location !== undefined &&
@@ -306,13 +334,107 @@ export class EventService {
         event.latitude == null ||
         event.longitude == null)
     ) {
-      const coordinates = await this.resolveCoordinates(dto.location)
-      data.latitude = coordinates.latitude
-      data.longitude = coordinates.longitude
+      const resolved = await this.resolveEventLocation(dto.location)
+      data.location = resolved.display
+      data.latitude = resolved.latitude
+      data.longitude = resolved.longitude
     }
 
     await this.prisma.events.update({ where: { id: Number(id) }, data })
     return this.findOne(id, userId)
+  }
+
+  /**
+   * Resuelve la ubicación escrita por el usuario.
+   *
+   * Acepta texto libre, coordenadas o un link de Google Maps / OpenStreetMap.
+   * Si el geocodificador no reconoce el texto (o está caído) el evento se
+   * guarda igual, sólo que sin coordenadas: la ubicación escrita es la fuente
+   * de verdad y no debe impedir publicar el evento.
+   */
+  private async resolveEventLocation(
+    rawLocation: string,
+    latitude?: number,
+    longitude?: number,
+  ): Promise<ResolvedLocation> {
+    const trimmed = (rawLocation ?? '').trim()
+    if (!trimmed) {
+      throw new BadRequestException('La ubicación del evento no puede estar vacía')
+    }
+    if ((latitude == null) !== (longitude == null)) {
+      throw new BadRequestException('La latitud y longitud deben enviarse juntas')
+    }
+
+    let parsed: ParsedLocation = parseMapLocation(trimmed)
+
+    // Links cortos de Google Maps (maps.app.goo.gl/...) esconden la URL real.
+    if (parsed.needsResolution) {
+      const resolved = await this.resolveShortMapLink(parsed.raw)
+      if (resolved) parsed = resolved
+    }
+
+    if (latitude != null && longitude != null) {
+      return {
+        display: parsed.display || trimmed,
+        latitude,
+        longitude,
+      }
+    }
+
+    if (parsed.coordinates) {
+      return {
+        display: parsed.display || trimmed,
+        latitude: parsed.coordinates.latitude,
+        longitude: parsed.coordinates.longitude,
+      }
+    }
+
+    const query = parsed.query
+    if (!query) {
+      return { display: parsed.display || trimmed, latitude: null, longitude: null }
+    }
+
+    try {
+      const coordinates = await this.resolveCoordinates(query)
+      return {
+        display: parsed.display || trimmed,
+        latitude: coordinates.latitude,
+        longitude: coordinates.longitude,
+      }
+    } catch (error) {
+      console.warn(
+        `[events] No se pudo geocodificar "${query}": ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+      return { display: parsed.display || trimmed, latitude: null, longitude: null }
+    }
+  }
+
+  /** Resuelve la redirección de un link corto de Google Maps. */
+  private async resolveShortMapLink(
+    raw: string,
+  ): Promise<ParsedLocation | null> {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+    try {
+      const response = await fetch(raw, {
+        redirect: 'follow',
+        signal: controller.signal,
+        headers: {
+          'User-Agent':
+            'MatrizEvents/1.0 (+https://github.com/joacoLoberza/meeter-api)',
+        },
+      })
+      const finalUrl = response.url
+      if (!finalUrl || finalUrl === raw) return null
+      const parsed = parseMapLocation(finalUrl)
+      return parsed.needsResolution ? null : parsed
+    } catch {
+      return null
+    } finally {
+      clearTimeout(timeout)
+    }
   }
 
   private async resolveCoordinates(
