@@ -7,11 +7,11 @@ export class EmailService {
 
   constructor() {
     this.transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-      port: Number(process.env.EMAIL_PORT) || 587,
+      host: process.env.EMAIL_HOST || 'mail.matriz.social',
+      port: Number(process.env.EMAIL_PORT) || 25,
       secure: false,
       auth: {
-        user: process.env.EMAIL_USER,
+        user: process.env.EMAIL_USER || 'no-replay@matriz.social',
         pass: process.env.EMAIL_PASSWORD,
       },
     })
@@ -21,7 +21,7 @@ export class EmailService {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
 
     await this.transporter.sendMail({
-      from: `"Meeter" <${process.env.EMAIL_USER}>`,
+      from: `"Matriz" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: `Invitación a ${eventName}`,
       html: `
@@ -39,7 +39,7 @@ export class EmailService {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
 
     await this.transporter.sendMail({
-      from: `"Meeter" <${process.env.EMAIL_USER}>`,
+      from: `"Matriz" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: 'Verifica tu cuenta en Meeter',
       html: `
