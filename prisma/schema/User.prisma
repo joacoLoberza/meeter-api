@@ -29,6 +29,8 @@ model User {
 	messagesRel Messages[]
 	guestsRel Guests[]
 	eventsRel Events[]
+	collaboratorsRel EventCollaborators[]
+	accessRulesRel EventAccessRules[]
 	enventsRatingRel EventRating[]
 	commentLikesRel CommentLikes[]
 	commentsRel Comment[]

@@ -1,3 +1,11 @@
+// Cómo se decide quién puede reservar acceso al evento.
+// OPEN = cualquiera; WHITELIST = sólo los listados; BLACKLIST = todos menos los listados.
+enum EventAccessMode {
+	OPEN
+	WHITELIST
+	BLACKLIST
+}
+
 model Events {
 	id Int @id @default(autoincrement())
 	owner User @relation(fields: [userFK], references: [id])
@@ -11,12 +19,15 @@ model Events {
 	latitude Float?
 	longitude Float?
 	open Boolean @default(false)
+	accessMode EventAccessMode @default(OPEN)
 	category EventCategories @relation(fields: [categoryFK], references: [id])
 	categoryFK Int
 	ticketPrice Int
 	rate Int @default(-1)
 	postsRel Posts[]
 	guestsRel Guests[]
+	collaboratorsRel EventCollaborators[]
+	accessRulesRel EventAccessRules[]
 	eventsRatingRel EventRating[]
 	contractsRel Contrats[]
 	chatsRel Chats[]

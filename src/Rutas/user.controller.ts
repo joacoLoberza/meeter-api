@@ -37,6 +37,16 @@ export class UserController {
     )
   }
 
+  /**
+   * Buscador de usuarios para el panel del organizador (colaboradores y
+   * listas de acceso). Declarado antes de `@Get(':id')`.
+   */
+  @Get('search')
+  @UseGuards(JwtAuthGuard)
+  async search(@Query('q') q?: string, @Query('limit') limit?: string) {
+    return this.userService.searchUsers(q, this.toLimit(limit))
+  }
+
   @Get(':id')
   @UseGuards(JwtAuthGuard)
   async findOne(@Param('id') id: string, @CurrentUser() user: any) {

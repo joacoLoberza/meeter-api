@@ -9,7 +9,9 @@ import { UserService } from './Services/user.service'
 import { AuthService } from './Services/auth.service'
 import { JwtService } from './Services/jwt.service'
 import { EventController } from './Rutas/event.controller'
+import { EventAccessController } from './Rutas/event-access.controller'
 import { EventService } from './Services/event.service'
+import { EventAccessService } from './Services/event-access.service'
 import { EventCategoriesController } from './Rutas/event-categories.controller'
 import { EventCategoriesService } from './Services/event-categories.service'
 import { ServiceCategoriesController } from './Rutas/service-categories.controller'
@@ -48,6 +50,8 @@ import { CommentsModule } from './comments/comments.module'
     UserController,
     EventCategoriesController,
     ServiceCategoriesController,
+    // Antes que EventController: sus rutas son más específicas.
+    EventAccessController,
     EventController,
     ChatController,
   ],
@@ -59,6 +63,7 @@ import { CommentsModule } from './comments/comments.module'
     EventCategoriesService,
     ServiceCategoriesService,
     GuestsService,
+    EventAccessService,
     EventRatingService,
     EmailService,
     ChatService,

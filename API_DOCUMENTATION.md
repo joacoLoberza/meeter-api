@@ -127,6 +127,7 @@ class ApiConfig {
 #### `GET /events/:id`
 - **Descripción:** Obtener detalle de un evento por ID.
 - **Requiere Auth:** Opcional (si se envía token, retorna si el usuario ya es invitado/calificó).
+- **Campos nuevos:** `accessMode` (`OPEN`/`WHITELIST`/`BLACKLIST`) y `collaborators` (array de IDs de usuarios colaboradores). Un evento cerrado (`open: false`) también es visible para sus colaboradores.
 
 #### `POST /events`
 - **Descripción:** Crear un evento.
@@ -170,8 +171,9 @@ class ApiConfig {
 - **Requiere Auth:** Sí (Solo el creador o Admin).
 
 #### `POST /events/:id/guests`
-- **Descripción:** Agregar un invitado al evento.
-- **Requiere Auth:** Sí (Solo el dueño del evento o Admin).
+- **Descripción:** Confirmar la propia asistencia o agregar un invitado al evento.
+- **Requiere Auth:** Sí (para agregar a otro: organizador, colaborador o Admin).
+- **Control de acceso:** se aplica la lista blanca/negra del evento (ver §Gestión del organizador). El organizador, los colaboradores y los Admin siempre pueden registrarse. Un usuario en la lista negra recibe `403`; si el evento está en modo `WHITELIST`, quien no está en la lista recibe `403`.
 - **Body (`JSON`):**
 ```json
 {
@@ -196,6 +198,49 @@ class ApiConfig {
   "email": "amigo@example.com"
 }
 ```
+
+### 🧑‍🤝‍🧑 Gestión del organizador (colaboradores y lista de acceso)
+
+Todos estos endpoints requieren JWT y cuenta verificada (`JwtAuthGuard`, `VerifiedGuard`).
+El **organizador** es quien creó el evento (`userFK`); un **colaborador** es otro usuario autorizado para ayudar a gestionarlo.
+
+| Permiso | Organizador / Admin | Colaborador |
+| --- | --- | --- |
+| Ver invitados, agregar/quitar invitados | ✅ | ✅ |
+| Editar el evento (`PATCH /events/:id`) | ✅ | ✅ |
+| Ver colaboradores y listas | ✅ | ✅ |
+| Agregar/quitar colaboradores, cambiar modo y listas | ✅ | ❌ |
+| Eliminar / cerrar el evento | ✅ | ❌ |
+
+#### `GET /users/search?q=<texto>&limit=20`
+- **Descripción:** Buscador público (con JWT) de usuarios por nombre o `@usuario`. Devuelve `id`, `user`, `name`, `image`, `verified`, `role` (sin email ni datos privados). Se usa para elegir colaboradores y agregar personas a las listas.
+
+#### `GET /events/:id/collaborators`
+- **Respuesta:** `{ "data": [ { "id", "user", "name", "image", "verified", "role" } ] }`.
+
+#### `POST /events/:id/collaborators`
+- **Body:** `{ "userId": 5 }`. No se puede agregar al propio organizador ni repetir a alguien (`409`).
+
+#### `DELETE /events/:id/collaborators/:userId`
+
+#### `GET /events/:id/access-rules`
+- **Respuesta:**
+```json
+{
+  "mode": "OPEN",
+  "whitelist": [ { "id": 5, "user": "ana", "name": "Ana Perez", "image": "...", "verified": true, "role": "CONSUMER" } ],
+  "blacklist": []
+}
+```
+- `mode`: `OPEN` (cualquiera puede registrarse), `WHITELIST` (sólo los de `whitelist`) o `BLACKLIST` (todos menos los de `blacklist`). Si una persona está en ambas, la negra gana; por eso un usuario tiene una sola entrada por evento.
+
+#### `PATCH /events/:id/access-rules`
+- **Body:** `{ "mode": "OPEN" | "WHITELIST" | "BLACKLIST" }`.
+
+#### `POST /events/:id/access-rules`
+- **Body:** `{ "userId": 5, "type": "WHITELIST" | "BLACKLIST" }`. Si el usuario ya tenía entrada en la otra lista, se mueve a la nueva (`upsert`).
+
+#### `DELETE /events/:id/access-rules/:userId`
 
 #### `POST /events/:id/rating`
 - **Descripción:** Calificar un evento (1 a 5 estrellas).

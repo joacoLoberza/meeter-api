@@ -96,6 +96,7 @@ export class EventService {
       },
     },
     _count: { select: { guestsRel: true } },
+    collaboratorsRel: { select: { userFK: true } },
   } satisfies Prisma.EventsInclude
 
   async create(dto: CreateEventDto, userId: string, imageUrl?: string) {
@@ -208,12 +209,14 @@ export class EventService {
       },
     })
     const data = events.map((event) => {
-      const { guestsRel, ...eventData } = event
+      const { guestsRel, collaboratorsRel, ...eventData } = event
       return {
         ...eventData,
         createdById: event.userFK,
         attendees: event._count.guestsRel,
         isGuest: Boolean(guestsRel?.length),
+        // IDs de quienes ayudan al organizador (para mostrar el panel).
+        collaborators: collaboratorsRel.map((c) => c.userFK),
       }
     })
 
@@ -257,18 +260,22 @@ export class EventService {
       }
       const currentUserId = Number(userId)
       const isGuest = event.guestsRel.some((guest) => guest.userFK === currentUserId)
-      if (event.userFK !== currentUserId && !isGuest) {
+      const isCollaborator = event.collaboratorsRel.some(
+        (c) => c.userFK === currentUserId,
+      )
+      if (event.userFK !== currentUserId && !isGuest && !isCollaborator) {
         throw new ForbiddenException('No tienes permiso para ver este evento')
       }
     }
 
-    const { guestsRel, eventsRatingRel, ...eventData } = event
+    const { guestsRel, eventsRatingRel, collaboratorsRel, ...eventData } = event
     return {
       ...eventData,
       createdById: event.userFK,
       attendees: event._count.guestsRel,
       isGuest: guestsRel.some((guest) => guest.userFK === Number(userId)),
       myRating: eventsRatingRel?.[0]?.rate ?? null,
+      collaborators: collaboratorsRel.map((c) => c.userFK),
     }
   }
 
@@ -280,8 +287,20 @@ export class EventService {
       throw new NotFoundException('Evento no encontrado')
     }
 
-    if (event.userFK !== Number(userId)) {
-      throw new ForbiddenException('Solo el dueño puede actualizar el evento')
+    const currentUserId = Number(userId)
+    if (event.userFK !== currentUserId) {
+      const collaborator = await this.prisma.eventCollaborators.findUnique({
+        where: {
+          eventFK_userFK: {
+            eventFK: Number(id),
+            userFK: currentUserId,
+          },
+        },
+        select: { id: true },
+      })
+      if (!collaborator) {
+        throw new ForbiddenException('Solo el organizador o un colaborador pueden actualizar el evento')
+      }
     }
 
     const data: any = {}

@@ -9,6 +9,7 @@ import { Request } from 'express'
 import { EventService } from '../Services/event.service'
 import { GuestsService } from '../Services/guests.service'
 import { EventRatingService } from '../Services/event-rating.service'
+import { EventAccessService } from '../Services/event-access.service'
 import { EmailService } from '../Services/email.service'
 import { CreateEventDto } from './dto/create-event.dto'
 import { UpdateEventDto } from './dto/update-event.dto'
@@ -25,6 +26,7 @@ export class EventController {
     private readonly eventService: EventService,
     private readonly guestsService: GuestsService,
     private readonly eventRatingService: EventRatingService,
+    private readonly eventAccessService: EventAccessService,
     private readonly emailService: EmailService,
   ) {}
 
@@ -115,13 +117,25 @@ export class EventController {
     if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
       throw new BadRequestException('El ID del invitado no es válido')
     }
-    if (
-      targetUserId !== currentUserId &&
-      (event as any).userFK !== currentUserId &&
-      user.role !== 'ADMIN'
-    ) {
-      throw new ForbiddenException('Solo el dueño del evento puede añadir invitados')
+    const isManager =
+      (event as any).userFK === currentUserId ||
+      user.role === 'ADMIN' ||
+      (await this.eventAccessService.isCollaborator(Number(id), currentUserId))
+    if (targetUserId !== currentUserId && !isManager) {
+      throw new ForbiddenException('Solo el organizador o un colaborador puede añadir invitados')
     }
+
+    // Lista blanca / negra: se aplica tanto al que reserva para sí como al
+    // invitado que agrega el organizador.
+    const access = await this.eventAccessService.canRegister(
+      Number(id),
+      targetUserId,
+      user.role,
+    )
+    if (!access.allowed) {
+      throw new ForbiddenException(access.reason ?? 'No podés registrarte a este evento')
+    }
+
     return this.guestsService.addGuest(Number(id), targetUserId)
   }
 
@@ -138,12 +152,12 @@ export class EventController {
     if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
       throw new BadRequestException('El ID del invitado no es válido')
     }
-    if (
-      targetUserId !== currentUserId &&
-      (event as any).userFK !== currentUserId &&
-      user.role !== 'ADMIN'
-    ) {
-      throw new ForbiddenException('Solo el dueño del evento puede quitar invitados')
+    const isManager =
+      (event as any).userFK === currentUserId ||
+      user.role === 'ADMIN' ||
+      (await this.eventAccessService.isCollaborator(Number(id), currentUserId))
+    if (targetUserId !== currentUserId && !isManager) {
+      throw new ForbiddenException('Solo el organizador o un colaborador puede quitar invitados')
     }
     return this.guestsService.removeGuest(Number(id), targetUserId)
   }
@@ -163,8 +177,12 @@ export class EventController {
   ) {
     const event = await this.eventService.findOne(id, String(user.id))
     const eventData = event as any
-    if (eventData.userFK !== Number(user.id) && user.role !== 'ADMIN') {
-      throw new ForbiddenException('Solo el dueño del evento puede enviar invitaciones')
+    const isManager =
+      eventData.userFK === Number(user.id) ||
+      user.role === 'ADMIN' ||
+      (await this.eventAccessService.isCollaborator(Number(id), Number(user.id)))
+    if (!isManager) {
+      throw new ForbiddenException('Solo el organizador o un colaborador puede enviar invitaciones')
     }
     await this.emailService.sendInvitation(email, eventData.name, user.name || user.user)
     return { message: 'Invitación enviada exitosamente' }

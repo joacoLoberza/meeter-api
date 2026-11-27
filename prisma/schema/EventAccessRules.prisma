@@ -1,0 +1,21 @@
+// Lista blanca / negra de usuarios que pueden registrarse a un evento.
+// Un usuario tiene a lo sumo una entrada por evento: cambiar de lista
+// actualiza el `type` de esa misma fila (unique [eventFK, userFK]).
+enum EventAccessType {
+	WHITELIST
+	BLACKLIST
+}
+
+model EventAccessRules {
+	id Int @id @default(autoincrement())
+	event Events @relation(fields: [eventFK], references: [id], onDelete: Cascade)
+	eventFK Int
+	user User @relation(fields: [userFK], references: [id], onDelete: Cascade)
+	userFK Int
+	type EventAccessType
+	createdAt DateTime @default(now())
+
+	@@unique([eventFK, userFK])
+	@@index([eventFK])
+	@@index([userFK])
+}

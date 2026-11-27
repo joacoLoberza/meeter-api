@@ -47,6 +47,28 @@ export class UserService {
     })
   }
 
+  /**
+   * Buscador público de usuarios (autenticado) para elegir colaboradores o
+   * agregar personas a la lista blanca/negra de un evento.
+   * No expone email, DNI ni otros datos privados.
+   */
+  async searchUsers(query?: string, limit: number = 20): Promise<any[]> {
+    const q = (query ?? '').trim()
+    return this.prisma.user.findMany({
+      where: q
+        ? {
+            OR: [
+              { user: { contains: q, mode: 'insensitive' } },
+              { name: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {},
+      take: Math.min(Math.max(limit, 1), 50),
+      orderBy: { name: 'asc' },
+      select: this.followUserSelect,
+    })
+  }
+
   async findOne(id: string, currentUserId?: number): Promise<any> {
     const targetId = Number(id)
     const user = await this.prisma.user.findUnique({
